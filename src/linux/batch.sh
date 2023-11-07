@@ -1,14 +1,14 @@
-#!/bin/bash
+#!/bin/sh
 
 ##############################################################################
 # Use of the CERT Basic Fuzzing Framework and related source code is subject
 # to the terms of the following licenses:
-# 
+#
 # GNU Public License (GPL) Rights pursuant to Version 2, June 1991
 # Government Purpose License Rights (GPLR) pursuant to DFARS 252.227.7013
-# 
+#
 # NO WARRANTY
-# 
+#
 # ANY INFORMATION, MATERIALS, SERVICES, INTELLECTUAL PROPERTY OR OTHER
 # PROPERTY OR RIGHTS GRANTED OR PROVIDED BY CARNEGIE MELLON UNIVERSITY
 # PURSUANT TO THIS LICENSE (HEREINAFTER THE "DELIVERABLES") ARE ON AN
@@ -24,7 +24,7 @@
 # CARNEGIE MELLON UNIVERSITY, EXPRESS OR IMPLIED, TO ANY PERSON
 # CONCERNING THE APPLICATION OF OR THE RESULTS TO BE OBTAINED WITH THE
 # DELIVERABLES UNDER THIS LICENSE.
-# 
+#
 # Licensee hereby agrees to defend, indemnify, and hold harmless Carnegie
 # Mellon University, its trustees, officers, employees, and agents from
 # all claims or demands made against them (and any related losses,
@@ -35,7 +35,7 @@
 # University under this License, including, but not limited to, any
 # claims of product liability, personal injury, death, damage to
 # property, or violation of any laws or regulations.
-# 
+#
 # Carnegie Mellon University Software Engineering Institute authored
 # documents are sponsored by the U.S. Department of Defense under
 # Contract F19628-00-C-0003. Carnegie Mellon University retains
@@ -46,58 +46,75 @@
 # contract clause at 252.227.7013.
 ##############################################################################
 
-scriptlocation=~/bff
+
+# contains(string, substring)
+#
+# Returns 0 if the specified string contains the specified substring,
+# otherwise returns 1.
+contains() {
+    string="$1"
+    substring="$2"
+    if test "${string#*$substring}" != "$string"
+    then
+        return 0    # $substring is in $string
+    else
+        return 1    # $substring is not in $string
+    fi
+}
+
+
+scriptlocation=`echo "$(cd "$(dirname "$0")"; pwd)/"`
 echo Script location: $scriptlocation/bff.py
 platform=`uname -a`
-PINURL=http://software.intel.com/sites/landingpage/pintool/downloads/pin-2.12-58423-gcc.4.4.7-linux.tar.gz
-if [[ "$platform" =~ "Darwin Kernel Version 11" ]]; then
+PINURL=https://software.intel.com/sites/landingpage/pintool/downloads/pin-3.2-81205-gcc-linux.tar.gz
+if ( contains "$platform" "Darwin Kernel Version 11" ); then
     mypython="/Library/Frameworks/Python.framework/Versions/2.7/bin/python"
 else
     mypython="python"
 fi
 
-if [[ "$platform" =~ "Darwin" ]]; then
-    # This doesn't actually do anything
-    # Maybe Apple will eventually fix it?
-    launchctl limit filesize 1048576
-else
-    ulimit -f 1048576
-fi
 
-if [[ "$platform" =~ "Linux" ]]; then
-    if [[ ! -f ~/pin/pin ]]; then
+# Prevent creation of huge files
+ulimit -f 1048576
+
+# Enable reasonably-sized core dumps
+ulimit -c 4096
+
+if ( contains "$platform" "Linux" ); then
+    if [ ! -f ~/pin/pin ]; then
         mkdir -p ~/fuzzing
         echo PIN not detected. Downloading...
         tarball=~/fuzzing/`basename $PINURL`
         pindir=`basename $tarball .tar.gz`
-        wget $PINURL -O $tarball
-        if [[ -f $tarball ]]; then      
+        wget --tries=1 $PINURL -O $tarball
+        if [ -f $tarball ]; then
             tar xzvf $tarball -C ~
             mv ~/$pindir ~/pin
         else
             echo Error retrieving PIN
         fi
     fi
-    
-    cp -au $scriptlocation/pintool ~
-    
-    if [[ ! -f ~/pintool/calltrace.so ]]; then
+
+    if [ ! -f ~/pintool/calltrace.so ]; then
         echo Building calltrace pintool...
+        cp -au $scriptlocation/pintool ~
         cd ~/pintool
         $mypython make.py
     fi
-    
-    if [[ ~/pintool/calltrace.cpp -ot $scriptlocation/pintool/calltrace.cpp ]]; then
+
+    if [ ~/pintool/calltrace.cpp -ot $scriptlocation/pintool/calltrace.cpp ]; then
         echo Updating calltrace pintool...
+        cp -au $scriptlocation/pintool ~
         cd ~/pintool
         $mypython make.py
-    fi        
+    fi
 fi
 
+cd $scriptlocation
+
 echo "Using python interpreter: $mypython"
-if [[ -f "$scriptlocation/bff.py" ]]; then
-    $mypython $scriptlocation/bff.py
+if [ -f "$scriptlocation/bff.py" ]; then
+    $mypython $scriptlocation/bff.py "$@"
 else
     read -p "Cannot find $scriptlocation/bff.py Please verify script locations."
 fi
-

@@ -3,16 +3,19 @@ Created on Mar 18, 2011
 
 @organization: cert.org
 '''
-import os
-from ..fuzztools import filetools
-from .basicfile import BasicFile
 import logging
+import os
+
+from certfuzz.file_handlers.basicfile import BasicFile
+from certfuzz.file_handlers.errors import DirectoryError
+from certfuzz.fuzztools import filetools
+
+
 logger = logging.getLogger(__name__)
 
-class DirectoryError(Exception):
-    pass
 
-blacklist = ['.DS_Store', ]
+blocklist = ['.DS_Store', ]
+
 
 class Directory(object):
     def __init__(self, mydir, create=False):
@@ -42,7 +45,7 @@ class Directory(object):
         '''
         self._verify_dir()
 
-        dir_listing = [os.path.join(self.dir, f) for f in os.listdir(self.dir) if not f in blacklist]
+        dir_listing = [os.path.join(self.dir, f) for f in os.listdir(self.dir) if not f in blocklist]
         self.files = [BasicFile(path) for path in dir_listing if os.path.isfile(path)]
 
     def paths(self):
